@@ -1,0 +1,145 @@
+.include "beta.uasm"
+.include "checkoff.uasm"
+
+regs:
+	RESERVE(32)
+
+UI:
+	save_all_regs(regs)
+	
+	LD(xp,-4,r0)
+	extract_field(r0,31,26,r1)
+	CMPEQC(r1,0x10,r2)
+	BT(r2,LDB)
+	CMPEQC(r1,0x11,r2)
+	BT(r2,STB)
+	
+	LD(r31,regs,r0)
+	LD(r31,regs+4,r1)
+	LD(r31,regs+8,r2)
+	BR(_IllegalInstruction)
+
+// Load and Store operations for byte (8-bit) data
+	rc 		= r1
+	ra 		= r2
+	literal	= r3
+	ea		= r4
+	mdata	= r5
+	offset	= r6
+	mdata0	= r7
+	mdata1	= r8
+	mdata2	= r9
+	mdata3	= r10
+_sxt:
+	LONG(0xffff0000)
+
+// Load
+LDB:
+	extract_field(r0,25,21,rc)
+	MULC(rc,4,rc)					// rc: rc byte offset into regs array
+	extract_field(r0,20,16,ra)
+	MULC(ra,4,ra)
+	LD(ra,regs,ra)					// ra: Reg[Ra]
+
+	extract_field(r0,15,0,literal)
+	extract_field(literal,15,15,r0)	// sign extension
+	BF(r0,_ljump_sxt)
+	LDR(_sxt,r0)
+	ADD(literal,r0,literal)
+_ljump_sxt:
+
+	ADD(ra,literal,ea)
+	LD(ea,0,mdata)
+	
+	extract_field(ea,1,0,offset)
+	CMPEQC(offset,0b00,r0)
+	BT(r0,_l0)
+	CMPEQC(offset,0b01,r0)
+	BT(r0,_l1)
+	CMPEQC(offset,0b10,r0)
+	BT(r0,_l2)
+	CMPEQC(offset,0b11,r0)
+	BT(r0,_l3)
+	
+_l0:
+	extract_field(mdata,7,0,r0)
+	BR(_lend)
+_l1:
+	extract_field(mdata,15,8,r0)
+	BR(_lend)
+_l2:
+	extract_field(mdata,23,16,r0)
+	BR(_lend)
+_l3:
+	extract_field(mdata,31,24,r0)
+_lend:
+	ST(r0,regs,rc)					// regs[rc] <- Reg[R0]
+	restore_all_regs(regs)
+	JMP(xp)
+
+// Store
+STB:
+	extract_field(r0,25,21,rc)
+	MULC(rc,4,rc)
+	LD(rc,regs,rc)
+	extract_field(rc,7,0,rc)		// rc: Reg[Rc]7:0
+	extract_field(r0,20,16,ra)
+	MULC(ra,4,ra)
+	LD(ra,regs,ra)					// ra: Reg[Ra]
+
+	extract_field(r0,15,0,literal)
+	extract_field(literal,15,15,r0)	// sign extension
+	BF(r0,_sjump_sxt)
+	LDR(_sxt,r0)
+	ADD(literal,r0,literal)
+_sjump_sxt:
+	
+	ADD(ra,literal,ea)
+	LD(ea,0,mdata)
+	
+	extract_field(mdata,7,0,mdata0)
+	extract_field(mdata,15,8,mdata1)
+	SHLC(mdata1,8,mdata1)
+	extract_field(mdata,23,16,mdata2)
+	SHLC(mdata2,16,mdata2)
+	extract_field(mdata,31,24,mdata3)
+	SHLC(mdata3,24,mdata3)
+	
+	extract_field(ea,1,0,offset)
+	CMPEQC(offset,0b00,r0)
+	BT(r0,_s0)
+	CMPEQC(offset,0b01,r0)
+	BT(r0,_s1)
+	CMPEQC(offset,0b10,r0)
+	BT(r0,_s2)
+	CMPEQC(offset,0b11,r0)
+	BT(r0,_s3)
+	
+_s0:
+	ADD(rc,mdata1,r0)
+	ADD(r0,mdata2,r0)
+	ADD(r0,mdata3,r0)
+	BR(_send)
+_s1:
+	SHLC(rc,8,rc)
+	ADD(mdata0,rc,r0)
+	ADD(r0,mdata2,r0)
+	ADD(r0,mdata3,r0)
+	BR(_send)
+_s2:
+	SHLC(rc,16,rc)
+	ADD(mdata0,mdata1,r0)
+	ADD(r0,rc,r0)
+	ADD(r0,mdata3,r0)
+	BR(_send)
+_s3:
+	SHLC(rc,24,rc)
+	ADD(mdata0,mdata1,r0)
+	ADD(r0,mdata2,r0)
+	ADD(r0,rc,r0)
+	BR(_send)
+_send:
+	ST(r0,0,ea)
+	restore_all_regs(regs)
+	JMP(xp)
+	

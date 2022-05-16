@@ -1,0 +1,48 @@
+// Parenthesis matcher Turing Machine
+// test tapes 
+
+symbols ( ) 0 1
+
+tape test1 (
+result1 test1 0
+
+tape test2 )
+result1 test2 0
+
+tape test3 ( ) ( )
+result1 test3 1
+
+tape test4 ( ) ( ) )
+result1 test4 0
+
+tape test5 ( ( ( )
+result1 test5 0
+
+tape test6 ( ) ( ( ( ) ( ( ( ) ) ( ) ) )
+result1 test6 0
+
+tape test7 ( ( ( ( ( ( ) ( ( ) ) ) ) ) ) )
+result1 test7 1
+
+// define additional symbols, your states and actions here
+
+// find_left, find_right
+states lft rht
+
+// l: checked_left, r: checked_right, 
+// [ ]: place holders for head to come back (rht state)
+symbols l r [ ]
+
+action lft ( rht	l l
+action lft l lft	l l
+action lft r lft	r l
+action lft - *halt*	1 -
+action lft ) *halt*	0 -
+
+action rht - *halt*	0 -
+action rht ) rht	r r
+action rht ( rht	[ l
+action rht r rht	] l
+action rht ] rht	r r
+action rht [ rht	( r
+action rht l lft	l l
